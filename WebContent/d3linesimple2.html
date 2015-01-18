@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+	<meta charset='utf-8'> <title>Welcome to Confessions Apprehension!</title>
+	<script src='js/d3.min.js' type='text/javascript'></script>
+	<script src='js/jquery-1.10.2.min.js' type='text/javascript'></script>
+	<link href='css/style.css' rel='stylesheet' type='text/css' /> 
+	<script src='js/crossfilter.js' type='text/javascript'></script>
+	<script src='js/dc.js' type='text/javascript'></script>
+	<script src='js/bootstrap.min.js' type='text/javascript'></script>
+	<link href='css/bootstrap.min.css' rel='stylesheet' type='text/css' /> 
+	<link href='css/dc.css' rel='stylesheet' type='text/css' />
+	<style type="text/css"></style> 
+	</head>
+<body>
+<h4>Likes of Posts Across Time</h4>
+
+<div class='linegraph' style='font: 12px sans-serif;'></div>
+<div>
+   	<button id="go">Go!</button>
+   	<button id="reset">Reset!</button>
+</div>
+
+
+<div class='container' style='font: 12px sans-serif;'>
+	<div class='row'>
+		<div class='span12'>
+			<table class='table table-hover' id='dc-table-graph'> <thead>
+				<tr class='header'> <th>Timestamp</th> <th>Message</th> <th>Number of Comments</th> <th>Number of Likes</th>
+          		</tr>
+        	</thead>
+      		</table>
+       	</div>
+  	</div>
+</div>
+
+<script>
+	var margin = {top: 30, right: 20, bottom: 30, left: 50}, 
+		width = 600 - margin.left - margin.right,
+		height = 270 - margin.top - margin.bottom;
+
+	var parseDate = d3.time.format("%d-%b-%y").parse; 
+
+	var x = d3.time.scale().range([0, width]);
+	var y = d3.scale.linear().range([height, 0]); 
+	
+	var xAxis = d3.svg.axis().scale(x)
+		.orient("bottom").ticks(5); 
+	var yAxis = d3.svg.axis().scale(y)
+		.orient("left").ticks(5);
+
+	var valueline = d3.svg.line() 
+		.x(function(d) { return x(d.date); }) 
+		.y(function(d) { return y(d.hits); });
+
+	var path = null;
+	var dots = null;
+
+	var svg = d3.select(".linegraph") .append("svg")
+		.attr("width", width + margin.left + margin.right)
+		.attr("height", height + margin.top + margin.bottom)
+		.append("g")
+		.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+	// TOOL TIP!
+	var div = d3.select(".linegraph").append("div") 
+		.attr("class", "tooltip") 
+		.style("opacity", 0);
+
+	// SETUP the grid lines
+	function make_x_axis() { return d3.svg.axis()
+        .scale(x)
+        .orient("bottom")
+        .ticks(10)
+	}
+	function make_y_axis() { return d3.svg.axis()
+        .scale(y)
+        .orient("left")
+        .ticks(5)
+	}
+
+
+	// Get the data
+	d3.tsv("data/data.tsv", function(error, data) {
+
+		var parseDate = d3.time.format("%d-%b-%y").parse;
+
+		var formatTime = d3.time.format("%e %B");
+			//var dtgFormat = d3.time.format("%Y-%m-%dT%H:%M:%S");
+
+		data.forEach(function(d) {
+			d.date = parseDate(d.date);
+			d.word = d.word;
+			d.hits = d3.round(+d.hits,0);
+		});
+	
+
+
+		// Scale the range of the data
+		x.domain(d3.extent(data, function(d) { return d.date; })); 
+		y.domain([0, d3.max(data, function(d) { return d.hits; })]);
+
+		// Drawing the grid lines
+		svg.append("g")
+	        .attr("class", "grid")
+	        .attr("transform", "translate(0," + height + ")")
+	        .call(make_x_axis()
+	            .tickSize(-height, 0, 0)
+	            .tickFormat("")
+	        )
+	    svg.append("g")
+	        .attr("class", "grid")
+	        .call(make_y_axis()
+	            .tickSize(-width, 0, 0)
+	            .tickFormat("")
+	        )
+
+		svg.append("g") // Add the X Axis .attr("class", "x axis")
+			.attr("transform", "translate(0," + height + ")") .call(xAxis);
+
+		svg.append("g")
+			.attr("class", "y axis")
+			.call(yAxis);
+
+
+		
+
+		
+
+	});
+
+
+	/*
+	function updateData() {
+		    // Get the data again
+		d3.tsv("datablank.tsv", function(error, data) { data.forEach(function(d) {
+            d.date = parseDate(d.date);
+            d.close = +d.close;
+		});
+		 // Scale the range of the data again
+		x.domain(d3.extent(data, function(d) { return d.date; })); y.domain([0, d3.max(data, function(d) { return d.close; })]);
+		// Select the section we want to apply our changes to
+		var svg = d3.select("body").transition();
+		// Make the changes
+		svg.select(".line") // change the line
+		            .duration(750)
+		.attr("d", valueline(data)); svg.select(".x.axis") // change the x axis
+		            .duration(750)
+		.call(xAxis);
+		svg.select(".y.axis") // change the y axis
+		            .duration(750)
+		            .call(yAxis);
+		}); 
+	}
+	*/
+
+	$(document).delegate('#go', 'click' ,function(){    
+		d3.tsv("data/data.tsv", function(error, data) {
+
+			data.forEach(function(d) {
+				d.date = parseDate(d.date);
+				d.hits = +d.hits;
+			});
+
+			var formatTime = d3.time.format("%e %B");
+			// Dotting it
+			dots = svg.selectAll("dot")
+	        	.data(data)
+			    .enter().append("circle")
+			    .attr("r", 3.5)
+				.style("fill", function(d) { // <== Add these
+					if (d.hits <= 2) {
+						return "red"
+					} // <== Add these 
+					else { 
+						return "black" 
+					} // <== Add these
+					
+					;})
+
+			.attr("cx", function(d) { return x(d.date); }) 
+			.attr("cy", function(d) { return y(d.hits); })
+			.on("mouseover", function(d) {
+	            div
+	            	.transition()
+	            	.duration(200)
+					.style("opacity", .9);
+	       		
+	       		div.html(formatTime(d.date) + "<br/><span style='color:#006699'>" + d.word + "</span><br/>"  + d.hits + " likes!")
+					.style("left", (d3.event.pageX) + "px")
+					.style("top", (d3.event.pageY - 28) + "px");
+					//.style("left", (d3.event.pageX) + "px")
+	                //.style("top", (d3.event.pageY - 28) + "px");
+	            })
+
+			.on("mouseout", function(d) { div.transition()
+	                .duration(500)
+	                .style("opacity", 0);
+			});
+
+
+
+			path = svg.append("path") // Add the valueline path.
+					.attr("d", valueline(data));
+
+			// ANIMATE IT!
+	    	var totalLength = path.node().getTotalLength();
+	    
+		    path
+		      .attr("stroke-dasharray", totalLength + " " + totalLength) // Make it invisible
+		      .attr("stroke-dashoffset", totalLength) // counting from the end, where to start? (at point t)
+		      .transition()
+		      .duration(1000)
+		      .ease("linear")
+		      .attr("stroke-dashoffset", 0);
+
+			/*
+			path
+				.datum(data)
+				.transition()
+				.duration(1000)
+				.ease("exp-out")
+				.attr("class", "line")
+				.attr("d", valueline);
+			*/
+
+		});
+
+	});
+
+
+	$(document).delegate('#reset', 'click' ,function(){    
+		d3.tsv("data/datablank.tsv", function(error, data) {
+
+			data.forEach(function(d) {
+				d.date = parseDate(d.date);
+				d.hits = +d.hits;
+			});
+
+			// ANIMATE IT FLAT!
+			path
+				.datum(data)
+				.transition()
+				.duration(1000)
+				.ease("exp-out")
+				.attr("class", "line")
+				.attr("d", valueline)
+				.remove();
+
+
+		});
+		// REMOVE THE DOTS!
+		dots.remove();
+		
+		/*
+
+		dots.on("mouseover", null)
+			.on("mouseout", null)
+			.on("mousemove", null);
+
+		svg.selectAll("dot").remove();
+		svg.selectAll("dot").on("mouseover", null)
+			.on("mouseout", null)
+			.on("mousemove", null);
+
+		*/
+	});
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+
+	// Create the dc.js chart objects & link to div
+	var dataTable = dc.dataTable("#dc-table-graph"); // load data from a csv file
+	d3.tsv("data/smuconfessions.txt", function (data) { // format our data
+		
+		var parseDate = d3.time.format("%Y-%m-%d %H:%M:%S").parse;
+		//var parseDate = d3.time.format("%d-%b-%y").parse;
+		//var dtgFormat = d3.time.format("%Y-%m-%dT%H:%M:%S");
+		
+		//post_id	message	comment_num	likes	datetime
+		data.forEach(function(d) {
+			d.post_id = d.post_id;
+			d.message = d.message;
+			//d.datetrimmed = parseDate(d.date.substr(0,10) + " " + d.date.substr(11,8);
+			d.comment_num = d.comment_num;
+			d.likes = d.likes;
+			d.datetime = parseDate(d.datetime);
+		});
+
+		// Run the data through crossfilter and load our 'facts'
+		var facts = crossfilter(data);
+		
+		
+		// Create dataTable dimension
+		var timeDimension = facts.dimension(function (d) { 
+			return d.datetime;
+		});
+		
+		dataTable.width(960).height(800)
+			.dimension(timeDimension)
+			.group(function(d) { return "Confessions Table!" })
+			.size(10)
+			.columns([
+				//function(d) { return d.post_id; }, 
+				function(d) { return d.datetime; },
+				function(d) { return d.message ; }, 
+				function(d) { return d.comment_num; },
+				function(d) { return d.likes; },
+			])
+			.sortBy(function(d){ return d.datetime; }).order(d3.descending);
+
+		// Render the Charts
+		dc.renderAll();
+	});
+
+
+
+</script>
+</body>
+</html>
